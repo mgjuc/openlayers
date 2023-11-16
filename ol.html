@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css">
+  <style>
+    .map {
+      height: 400px;
+      width: 100%;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+    integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+  <title>OpenLayers</title>
+</head>
+
+<body>
+  <h2>My Map</h2>
+  <div id="map" class="map"></div>
+  <script type="text/javascript">
+    let server = "http://10.1.2.200:5500/"
+    // let json = '{"originX":"-20037700","originY":"30241100","size":"512","resolution":["33.072982812632297","16.933367200067735","8.4666836000338677","4.2333418000169338","2.1166709000084669","1.0583354500042335","0.52916772500211673","0.26458386250105836"],"xMin":"2199.2910886158115","yMin":"3067.6768479598759","xMax":"11179.195134644895","yMax":"12292.290762729714"}'
+    // var info = JSON.parse(json)
+    let info
+    $.ajax({
+      async: false,
+      url: "http://10.1.2.200:5500/map/GetTiledMapInfo",
+      headers: { "MineId": "0" },
+      success: function (result) {
+        info = result.data;
+      }
+    })
+
+    //要鉴权
+    // $.ajax({url:"http://10.1.2.200:5500/map/GetTiledMap", headers:{"MineId": "0"},success:function(result){
+    //     //console.log("infos",result)
+    //     info.tiledUrl = result.data.tiledUrl;
+    //     // console.log(info)
+    // }});
+
+    // console.log(info)
+    function formatQuery(num, len, radix) {
+      let str = num.toString(radix || 10)
+      return str.padStart(len, '0')
+    }
+    let projection = new ol.proj.Projection({
+      code: 'EPSG:4527',
+      units: 'm',
+      extent: [info.xMin, info.yMin, info.xMax, info.yMax]
+    })
+    //必须是number
+    let originCenter =  [Number(info.xMin) + (Number(info.xMax) - Number(info.xMin)) / 2, Number(info.yMin)  + (Number(info.yMax) - Number(info.yMin)) / 2]
+    var map = new ol.Map({
+      target: 'map',
+      layers: [
+        new ol.layer.Tile({
+          zIndex: 0,
+          source: new ol.source.XYZ({
+            tileUrlFunction: (coordinate) => {
+              let x = 'C' + this.formatQuery(coordinate[1], 8, 16)
+              let y = 'R' + this.formatQuery(coordinate[2], 8, 16)
+              let z = 'L' + this.formatQuery(coordinate[0], 2, 10)
+              return `${server}${info.tiledUrl ? info.tiledUrl : "TiledMap/2023070401/Layers/_alllayers"}/${z}/${y}/${x}.png`
+            },
+            tileGrid: new ol.tilegrid.TileGrid({
+              tileSize: info.size,
+              //必须是number
+              origin: [Number(info.originX), Number(info.originY)],
+              extent: [info.xMin, info.yMin, info.xMax, info.yMax],
+              minZoom: 0,
+              resolutions: info.resolution
+            }),
+            projection: projection
+          })
+        })
+      ],
+      view: new ol.View({
+        projection: projection,
+        center: originCenter,
+        resolution: info.resolution[1],
+        resolutions: info.resolution
+      })
+    });
+  </script>
+</body>
+
+</html>
